@@ -1,0 +1,19 @@
+recsys
+│   .env
+│   output.txt
+│   requirements.txt
+│   __init__.py
+│
+├───data
+│       movie_ids.db
+│
+├───db
+│       connect.py
+│       __init__.py
+│
+├───models
+│       movie_id.py
+│       __init__.py
+│
+└───scripts
+        fetch_movies.py
