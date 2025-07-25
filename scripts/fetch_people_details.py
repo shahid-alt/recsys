@@ -1,12 +1,8 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import os
-import sys
 from threading import Lock
 import time
-
-import sqlalchemy
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dotenv import load_dotenv
 import requests
@@ -15,6 +11,7 @@ from requests.exceptions import SSLError
 from urllib3.util.retry import Retry
 from models.tmdb import Credit, People
 from db.connect import Base, engine, SessionLocal
+from utils.db import save_batch
 
 from tqdm import tqdm
 
@@ -92,27 +89,6 @@ def fetch_people_data(people_id: int) -> People:
             print(f'[Exception]: {e}')
     return None
 
-def save_batch(peoples_list):
-    retries = 5
-    for attempt in range(retries):
-        session = SessionLocal()
-        try:
-            session.bulk_save_objects(peoples_list)
-            session.commit()
-            session.close()
-            return
-        except sqlalchemy.exc.OperationalError as e:
-            if 'database is locked' in str(e):
-                print(f"DB is locked, retrying commit {attempt + 1}/{retries}...")
-                time.sleep(1 + attempt)
-            else:
-                session.rollback()
-                session.close()
-                raise
-        finally:
-            session.close()
-    print("Failed to commit batch after retries.")
-
 def main() -> None:
     db_session = SessionLocal()
     try:
@@ -132,11 +108,11 @@ def main() -> None:
                         peoples_list.append(people)
                     if len(peoples_list) >= BATCH_SIZE:
                         tqdm.write(f'Inserting {len(peoples_list)} people data into DB')
-                        save_batch(peoples_list=peoples_list)
+                        save_batch(peoples_list, session=db_session)
                         peoples_list.clear()
                 if peoples_list:
                         tqdm.write(f'Inserting remaining people data into DB')
-                        save_batch(peoples_list=peoples_list)
+                        save_batch(records=peoples_list, session=db_session)
         print(f'Total People Fetched: {len(existing_people_ids)}')
         if failed_ids:
             print(f'Retry for Failed IDs: {failed_ids}')

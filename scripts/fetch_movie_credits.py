@@ -1,18 +1,18 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
-import sys
 import time
+import traceback
 from typing import List
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from tqdm import tqdm
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dotenv import load_dotenv
 from models.tmdb import Credit, MovieID
 from db.connect import Base, engine, SessionLocal
+from utils.db import save_batch
 
 Base.metadata.create_all(bind=engine)
 db_session = SessionLocal()
@@ -81,7 +81,7 @@ def fetch_movie_credit(movie_id: int) -> List[Credit]:
             time.sleep(2)
         except Exception as e:
             print(f'[Exception]: {e}')
-            time.sleep(1)
+            traceback.print_exc()
 
 def main() -> None:  
     try:
@@ -101,12 +101,10 @@ def main() -> None:
                         existing_ids.update(credit.id for credit in new_credits)
                         batch.extend(new_credits)
                     if len(batch) >= BATCH_SIZE:
-                        db_session.bulk_save_objects(batch)
-                        db_session.commit()
+                        save_batch(records=batch, session=db_session)
                         batch.clear() 
-        if batch:    
-            db_session.bulk_save_objects(batch)
-            db_session.commit()
+        if batch:   
+            save_batch(records=batch, session=db_session)
         print(f'Total Credits Inserted {len(existing_ids)}')
     except Exception as e:
         print(f'[Exception] - {e}')

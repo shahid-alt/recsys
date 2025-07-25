@@ -210,3 +210,10 @@ __marimo__/
 data/
 .db
 .sqlite3
+
+# VSCode
+.vscode/
+
+
+!alembic.ini
+!alembic/versions/*.py

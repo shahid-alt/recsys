@@ -1,17 +1,16 @@
-import random
-import sys
 import os
 import time
+import traceback
 
 from tqdm import tqdm
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from dotenv import load_dotenv
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from db.connect import Base, engine, SessionLocal
-from models.tmdb import MovieID, MovieGenre
+from models.tmdb import MovieID, Genre
+from utils.db import save_batch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 Base.metadata.create_all(bind=engine)
@@ -66,20 +65,21 @@ def fetch_page(year, genre, page):
             time.sleep((2**tries)+1)
         except Exception as e:
             print(f"[Exception]: {e}")
-            time.sleep(2)
+            traceback.print_exc()
+
 def main():
-    GENRES = {genre.id:genre.name for genre in db_session.query(MovieGenre).all()}
+    GENRES = {genre.id:genre.name for genre in db_session.query(Genre).all()}
     GENRE_IDS = list(GENRES.keys())
-    START_YEAR = 2024
-    END_YEAR = 2025
-    TOTAL = (END_YEAR+1-START_YEAR)*len(GENRE_IDS)*500
+    START_YEAR = 2025
+    END_YEAR = 2026
+    TOTAL = (END_YEAR-START_YEAR)*len(GENRE_IDS)*500
     try:
         BATCH_SIZE = 5000
         movies_ids = []
         existing_ids = {_id[0] for _id in db_session.query(MovieID.id).all()}
 
         with tqdm(total=TOTAL, desc=f"Fetching Movies from {START_YEAR} to {END_YEAR}") as pbar:
-            for year in range(START_YEAR, END_YEAR+1):
+            for year in range(START_YEAR, END_YEAR):
                 for genre in GENRE_IDS:
                     workers = 50
                     new_movies = []
@@ -92,16 +92,14 @@ def main():
                                 new_movies = [movie_id for movie_id in movies if movie_id not in existing_ids]
                                 existing_ids.update(new_movies)
                                 movies_ids.extend(MovieID(id=movie_id) for movie_id in new_movies)
-                            if len(movies_ids) > BATCH_SIZE:
+                            if len(movies_ids) >= BATCH_SIZE:
                                 tqdm.write(f'Commiting a batch in Database - Year:{year} - Genre: {GENRES[genre]}')
-                                db_session.bulk_save_objects(movies_ids)
-                                db_session.commit()
+                                save_batch(records=movies_ids, session=db_session)
                                 movies_ids.clear() 
                     tqdm.write(f"Completed batch for {year}-{GENRES[genre]}")
             tqdm.write(f"Committing the data in Database")
             if movies_ids: 
-                db_session.bulk_save_objects(movies_ids)
-                db_session.commit()
+                save_batch(records=movies_ids, session=db_session)
                 movies_ids.clear()
             tqdm.write(f"Total {len(existing_ids)} Movie IDs pushed to DB.")
     except Exception as e:
