@@ -3,7 +3,6 @@ from typing import Any, Sequence
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-
 def save_batch(records: Sequence[Any], session: Session, max_attempts: int=5) -> None:
     if not records:
         print(f'No Records to insert into Database')

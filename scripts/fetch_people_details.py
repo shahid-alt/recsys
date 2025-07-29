@@ -11,7 +11,7 @@ from requests.exceptions import SSLError
 from urllib3.util.retry import Retry
 from models.tmdb import Credit, People
 from db.connect import Base, engine, SessionLocal
-from utils.db import save_batch
+from utils.db_helpers import save_batch
 
 from tqdm import tqdm
 
@@ -37,8 +37,6 @@ retries = Retry(
 
 adapter = HTTPAdapter(max_retries=retries)
 https_session.mount('https://', adapter=adapter)
-
-Base.metadata.create_all(bind=engine)
 
 failed_ids = []
 lock = Lock()

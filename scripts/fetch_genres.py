@@ -6,7 +6,6 @@ import requests
 from db.connect import Base, engine, SessionLocal
 from models.tmdb import Genre
 
-Base.metadata.create_all(bind=engine)
 session = SessionLocal()
 
 

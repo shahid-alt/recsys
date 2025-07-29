@@ -12,9 +12,8 @@ from tqdm import tqdm
 from dotenv import load_dotenv
 from models.tmdb import Credit, MovieID
 from db.connect import Base, engine, SessionLocal
-from utils.db import save_batch
+from utils.db_helpers import save_batch
 
-Base.metadata.create_all(bind=engine)
 db_session = SessionLocal()
 https_session = requests.Session()
 retries = Retry(

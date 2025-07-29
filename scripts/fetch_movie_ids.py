@@ -10,10 +10,9 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from db.connect import Base, engine, SessionLocal
 from models.tmdb import MovieID, Genre
-from utils.db import save_batch
+from utils.db_helpers import save_batch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-Base.metadata.create_all(bind=engine)
 db_session = SessionLocal()
 https_session = requests.Session()
 retries = Retry(
@@ -70,8 +69,8 @@ def fetch_page(year, genre, page):
 def main():
     GENRES = {genre.id:genre.name for genre in db_session.query(Genre).all()}
     GENRE_IDS = list(GENRES.keys())
-    START_YEAR = 2025
-    END_YEAR = 2026
+    START_YEAR = 2020
+    END_YEAR = 2025
     TOTAL = (END_YEAR-START_YEAR)*len(GENRE_IDS)*500
     try:
         BATCH_SIZE = 5000

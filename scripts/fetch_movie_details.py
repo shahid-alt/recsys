@@ -13,10 +13,9 @@ from urllib3.util.retry import Retry
 from requests.exceptions import SSLError
 from db.connect import Base, engine, SessionLocal
 from models.tmdb import Movie, MovieID, MovieGenre
-from utils.db import save_batch
+from utils.db_helpers import save_batch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-Base.metadata.create_all(bind=engine)
 db_session = SessionLocal()
 
 load_dotenv()
