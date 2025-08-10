@@ -1,115 +1,271 @@
 
-# Movie Mirror API
+# TMDBMirror
 
-A FastAPI-based backend API for a local movie database mirror with search, pagination, and genre filtering.  
-Uses SQLAlchemy ORM for database models and Alembic for schema migrations.
+### A high-performance backend solution featuring a robust data ingestion pipeline and FastAPI-based service for The Movie Database (TMDB). It efficiently mirrors movie metadata locally using parallel fetching, batch inserts, and SQLite storage.
+---
+
+## 🚀 Key Features
+
+- **Multi-stage Pipeline:**  
+  1. Fetch genres  
+  2. Collect movie IDs  
+  3. Extract detailed metadata  
+  4. Fetch credits & people data
+     
+- **High Performance:**  
+  - Parallel HTTP requests using `ThreadPoolExecutor` (50–100 workers)  
+  - Batched database inserts (1,000–10,000 records per transaction) for speed and consistency
+
+- **Robustness:**  
+  - Exponential backoff and automatic retries on rate limiting and network errors  
+  - Transaction-safe database operations to prevent data corruption
+
+- **FastAPI Backend Service:**  
+  - Provides a RESTful API for querying mirrored movie, genre, credit, and people data locally
 
 ---
 
-## Features
+## 🛠 Tech Stack
 
-- Browse movies with detailed metadata  
-- Search movies by title, genre, year, status, and language  
-- Pagination support with page numbers (20 results per page)  
-- Filter movies by genre name  
-- Robust SQL injection protection via SQLAlchemy ORM  
-- Database schema managed using Alembic migrations
-
----
-
-## Tech Stack
-
-- Python 3.9+  
-- FastAPI  
-- SQLAlchemy ORM  
-- Alembic (for DB migrations)  
-- SQLite (default, can be configured to other DBs)  
+| Component     | Technology           |
+|---------------|----------------------|
+| Language      | Python 3.9+          |
+| API Framework | FastAPI              |
+| HTTP Client   | Requests + HTTPAdapter|
+| Concurrency   | ThreadPoolExecutor   |
+| Database      | SQLite via SQLAlchemy|
 
 ---
 
-## Setup
+## 📦 Setup Guide
 
-### 1. Clone the repository
+### 1️⃣ Prerequisites
+- TMDB API Bearer Token ([Get one here](https://developer.themoviedb.org/docs))  
+- Python 3.9 or above  
+- SQLite installed (comes bundled with Python)
+- Node.js (v14 or above) & npm — required to run the frontend
 
+### 2️⃣ Installation
 ```bash
-git clone https://github.com/yourusername/movie-mirror-api.git
-cd movie-mirror-api
-```
+git clone https://github.com/shahid-alt/recsys.git
+cd recsys
 
-### 2. Create and activate a virtual environment
-
-```bash
 python -m venv venv
-source venv/bin/activate    # Linux/macOS
-venv\Scripts\activate       # Windows
-```
+# Activate virtual environment:
+source venv/bin/activate      # Linux/MacOS
+venv\Scripts\activate         # Windows
 
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure database URL
-
-Edit `alembic.ini` to set your database URL (default SQLite):
-
+### 3️⃣ Configuration
+Create a `.env` file in the project root with your API key and database URL:
+```ini
+BEARER_TOKEN=your_tmdb_api_key_here
+DB_URL=sqlite:///./data/tmdb.db
 ```
-sqlalchemy.url = sqlite:///./movies.db
-```
 
-Or set environment variable (if supported):
-
+### 4️⃣ Create Data Directory
+Ensure the directory for your SQLite database exists:
 ```bash
-export DATABASE_URL="sqlite:///./movies.db"
+mkdir -p data
 ```
+This ensures a consistent, predictable path for your `.db` file.
 
-### 5. Run Alembic migrations
-
+### 5️⃣ Database Migration
+Initialize or upgrade the database schema using Alembic:
 ```bash
 alembic upgrade head
 ```
 
-### 6. Run the FastAPI server
+---
 
+## ⚙️ Pipeline Workflow
+
+| Step | Script                  | Purpose                                  |
+|-------|-------------------------|------------------------------------------|
+| 1     | `fetch_genres.py`       | Populate **Genre** table with all genres |
+| 2     | `fetch_movie_ids.py`    | Collect raw movie IDs into **MovieID** table |
+| 3     | `fetch_movie_details.py`| Populate detailed **Movie** and **MovieGenre** data |
+| 4     | `fetch_movie_credits.py`| Fetch movie credits into **Credit** table |
+| 5     | `fetch_people_details.py`| Populate **People** table from credits   |
+
+Run these sequentially for a full data mirror:
 ```bash
+python fetch_genres.py
+python fetch_movie_ids.py
+python fetch_movie_details.py
+python fetch_movie_credits.py
+python fetch_people_details.py
+```
+
+---
+
+## ⚡ Performance Tuning
+
+| Script                  | Key Parameters           | Recommended Default |
+|-------------------------|--------------------------|---------------------|
+| `fetch_movie_ids.py`      | `max_workers`, `BATCH_SIZE` | 50 workers, 5,000 batch |
+| `fetch_movie_details.py`  | `max_workers`, `BATCH_SIZE` | 60 workers, 1,000 batch |
+| `fetch_people_details.py` | `max_workers`, `BATCH_SIZE` | 60 workers, 10,000 batch |
+
+Adjust based on your machine/network for optimal throughput.
+
+---
+
+## 🛠 Monitoring & Troubleshooting
+
+- **Progress Tracking:**  
+  Real-time progress bars via `tqdm` with console logs for failed IDs.
+
+- **Common Issues & Solutions:**  
+  - **Rate Limiting:** Automatically retries with exponential backoff.  
+  - **SSL Errors:** Retries with delay on intermittent SSL failures.  
+  - **Database Constraints:** Duplicate entries are skipped gracefully.
+
+Failed IDs are logged to console and can be reviewed post-run for reprocessing if needed.
+
+---
+
+## 🗄 Database Schema Overview
+
+```mermaid
+erDiagram
+    MOVIE {
+        Integer id PK
+        Boolean is_adult
+        String language
+        String original_title
+        Text overview
+        String poster_path
+        String release_date
+        Integer runtime
+        String title
+        String status
+        Float vote_average
+    }
+
+    GENRE {
+        Integer id PK
+        String name
+    }
+
+    MOVIEGENRE {
+        Integer movie_id PK, FK
+        Integer genre_id PK, FK
+    }
+
+    CREDIT {
+        String id PK
+        Integer movie_id FK
+        String gender
+        Integer person_id FK
+        String name
+        String character_name
+    }
+
+    PEOPLE {
+        Integer id PK
+        Boolean is_adult
+        Text alias
+        Text biography
+        String birthday
+        String gender
+        String name
+        String place_of_birth
+        String profile_path
+    }
+
+    MOVIE ||--o{ MOVIEGENRE : has
+    GENRE ||--o{ MOVIEGENRE : categorizes
+    MOVIE ||--o{ CREDIT : has
+    PEOPLE ||--o{ CREDIT : credited_in
+```
+
+---
+
+## 🚀 Running FastAPI Server
+
+Start the API backend for querying your local TMDB mirror:
+```bash
+cd backend
 uvicorn main:app --reload
 ```
 
 ---
 
-## API Endpoints
+## 🔌 API Endpoints
 
-- `GET /movies/` — List movies  
-- `GET /movies/{movie_id}/` — Get movie details  
-- `GET /movies/search/?page=1&query=batman` — Search movies with pagination  
-- `GET /genres/{genre_name}/` — List movies by genre name  
-- Additional endpoints: `/movies/{movie_id}/credits/`, `/movies/{movie_id}/genres/`
-
----
-
-## Pagination
-
-- Use the `page` query parameter to paginate results.  
-- Each page returns 20 results.  
-- Example: `/movies/search/?page=3&query=action`
+| Endpoint                  | Method | Description                                  | Query Parameters / Notes                                      |
+|---------------------------|--------|----------------------------------------------|---------------------------------------------------------------|
+| `/movies`                 | GET    | Get paginated list of movies                  | `page` (int), `limit` (int, default 20), `year`, `genre_id`, `language`, `status` filters supported |
+| `/movies/search`          | GET    | Search movies by title substring              | `query` (string), `page` (int), `limit` (int)                 |
+| `/movies/{movie_id}`      | GET    | Get detailed metadata of a single movie       | `movie_id` (int)                                              |
+| `/movies/{movie_id}/credits` | GET | Get cast and crew credits for a movie          | `movie_id` (int)                                              |
+| `/people/{person_id}`     | GET    | Get detailed information about a person       | `person_id` (int)                                             |
+| `/genres`                 | GET    | Retrieve all movie genres                       | No parameters                                                |
 
 ---
 
-## Testing for SQL Injection
+### Example Requests
 
-- The API uses SQLAlchemy ORM to prevent SQL injection.  
-- You can test with common injection payloads in query parameters; the API should respond safely without errors or unwanted data.
+- **Get movies released in 2020 with genre Drama:**
+  ```
+  GET /movies?year=2020&genre=Drama&page=1
+  ```
+
+- **Search movies with "Matrix" in the title:**
+  ```
+  GET /movies/search?query=Matrix&page=1
+  ```
+
+- **Get detailed info about movie ID 603:**
+  ```
+  GET /movies/603
+  ```
+
+- **Get credits for movie ID 603:**
+  ```
+  GET /movies/603/credits
+  ```
+
+- **Get person details for person ID 287:**
+  ```
+  GET /people/287
+  ```
 
 ---
 
-## Contributing
+## 🖥️ Running the Frontend (React + Vite + Tailwind)
 
-Feel free to open issues or submit pull requests!  
-Make sure to run migrations after model changes:
+If you want to run the frontend UI to interact with your TMDB mirror backend, follow these quick steps:
 
 ```bash
-alembic revision --autogenerate -m "Describe change"
-alembic upgrade head
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run the development server
+npm run dev
 ```
 
+Access the frontend at `http://localhost:5173` (or as shown in the terminal).
+
+---
+
+## ❓ FAQ
+
+**Q:** How do I adjust the year range for movie collection?  
+**A:** Edit `START_YEAR` and `END_YEAR` constants in `fetch_movie_ids.py`.
+
+**Q:** Where can I find the list of failed IDs?  
+**A:** Each script outputs a `failed_ids` list in the console upon completion.
+
+**Q:** Can I use a different database like MySQL?  
+**A:** Yes. Just update `DB_URL` in `.env` with your MySQL connection string.
+
+**Q:** How do I resume a pipeline after interruption?  
+**A:** All scripts skip already existing records, enabling safe reruns.
+
+---
