@@ -7,7 +7,23 @@ from sqlalchemy.orm import Session
 from backend.schema import CreditResponse, GenreResponse, MovieResponse, PaginatedMovieResponse, PaginatedPeopleResponse, PeopleResponse
 from db.connect import get_db
 from models.tmdb import Credit, Genre, Movie, MovieGenre, People
+from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+
+origins = [
+    "http://localhost:5173",  # Vite dev server
+    "http://localhost:3000",  # If using CRA
+    "http://127.0.0.1:5173",
+]
+
+# Enable CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # or use ["*"] for all origins (not recommended for prod)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 PAGE_SIZE = 20
 
@@ -94,13 +110,14 @@ def search(
         q = q.filter(Movie.title.ilike(f'%{query}%'))
 
     if genre:
-        q = q.join(Movie.movie_genres).join(MovieGenre.genre).filter(Genre.name.ilike(f"%{genre}%"))
+        q = q.join(Movie.movie_genres).join(MovieGenre.genre).filter(Genre.name == genre)
 
     if year:
         q = q.filter(Movie.release_date != None)
         q = q.filter(extract('year', Movie.release_date) == year)
 
     if status:
+        status = status.strip()
         q = q.filter(func.lower(Movie.status) == status.lower())
 
     if language:
