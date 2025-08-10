@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from dotenv import load_dotenv
 from models.tmdb import Credit, MovieID
-from db.connect import Base, engine, SessionLocal
+from db.connect import SessionLocal
 from utils.db_helpers import save_batch
 
 db_session = SessionLocal()
@@ -39,6 +39,28 @@ header = {
 }
 
 def fetch_movie_credit(movie_id: int) -> List[Credit]:
+    """
+    Fetches the details of the Cast information of the Movie using its TMDB Movie ID.
+    
+    Args:
+        movie_id (int): Unique ID of the movie to retrieve.
+
+    Returns:
+        List[Credit]: List of credit objects, each represented with the following fields:
+            - id (int): Credit ID
+            - gender (int): Gender of the cast member.
+            - name (str): Name of the cast member.
+            - character_name: Name of character played by cast member.
+            - movie_id (int): Associated Movie ID.
+
+    Raises:
+        requests.exceptions.SSLError: If a SSL error occurs.
+        Exception: If any unexpected error occurs (logged with traceback).
+
+    Notes:
+        - Handles rate limiting (status code 429) with exponential backoff. 
+        - Returns empty list if the movie is not found (status code 404). 
+    """
     max_attempts = 3
     for tries in range(max_attempts):
         cast_credits = []
@@ -83,6 +105,18 @@ def fetch_movie_credit(movie_id: int) -> List[Credit]:
             traceback.print_exc()
 
 def main() -> None:  
+    """
+    Fetches and saves credits of all the movies in the database.
+
+    Workflow:
+        1. Retrieves all the movie IDs in the database.
+        2. Fetches credits for each movie in parallel using ThreadPoolExecutor
+        3. Batches and saves the credits in the database in chunks of BATCH_SIZE
+
+    Notes: 
+        - Skips existing credits to avoid duplication.
+        - Logs progress and errors using tqdm.
+    """
     try:
         movie_ids = [movie.id for movie in db_session.query(MovieID).all()]
         existing_ids = {credit_id[0] for credit_id in db_session.query(Credit.id).all()}

@@ -11,7 +11,7 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from requests.exceptions import SSLError
-from db.connect import Base, engine, SessionLocal
+from db.connect import SessionLocal
 from models.tmdb import Movie, MovieID, MovieGenre
 from utils.db_helpers import save_batch
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -45,6 +45,36 @@ https_session.mount('https://', adapter=adapter)
 failed_ids = []
 
 def fetch_data(movie_id: int) -> Optional[Tuple[List[MovieGenre], Movie]]:
+    """
+    Retrieves the movie details and associated genres using Unique ID of the movie.
+
+    Args:
+        movie_id: Unique ID of the Movie
+
+    Returns:
+        Optional[Tuple[List[MovieGenre]: A tuple containing:
+            - List[MovieGenre]:  Genres to which the movie belongs.
+            - Movie: Serialized Movie object containing fields:
+                - id (int): Movie ID
+                - is_adult (bool): Whether the movie is adult or not.
+                - language (str):  Language of the movie.
+                - original_title (str): Title in language of the movie.
+                - overview (str): Plot summary.
+                - poster_path (str): Path of the poster in TMDB.
+                - release_date (str): Date of movie release.
+                - runtime (int): Runtime of the movie.
+                - title (str): Title of movie in english.
+                - status (str): Status of movie (e.g. - Released, In-Production, etc.).
+                - vote_average (float): Voting average of the movie in TMBD. 
+    
+    Raises:
+         SSLError: If any SSLError occurs.
+         Exception: If any unexpected error occurs (logged with traceback).
+        
+    Notes:
+        - Handles Rate Limiting (status code 429) with exponential backoff.
+        - Returns None if no movie is found (status code 404).
+    """
     max_attempts = 3
     for tries in range(max_attempts):
         try:
@@ -81,6 +111,18 @@ def fetch_data(movie_id: int) -> Optional[Tuple[List[MovieGenre], Movie]]:
             traceback.print_exc()
 
 def main():
+    """
+    Fetches and save the details of the movies in database.
+
+    Workflow:
+        1. Retrieves the movie IDs in the database.
+        2. Fetches the genres and data of each movie in parallel using ThreadPoolExecutor.
+        3. Batches and saves the data in database in chunks of BATCH_SIZE
+
+    Notes:
+        - Skips existing Movie IDs to avoid duplication.
+        - Logs the progress and errors using tqdm.
+    """
     try:
         movies = []
         genres = []
@@ -88,7 +130,8 @@ def main():
         BATCH_SIZE = 1000
         movie_ids = [movie.id for movie in db_session.query(MovieID).all()]
         random.shuffle(movie_ids)
-        existing_movie_ids = {movie.id for movie in db_session.query(Movie).all()}
+        existing_movie_ids = set(db_session.query(Movie.id).all())
+        existing_movie_genres = set(db_session.query(MovieGenre.genre_id, MovieGenre.movie_id).all())
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             with tqdm(total=len(movie_ids), desc='Fetching Movie Details....') as pbar:
                 futures = [executor.submit(fetch_data, id) for id in movie_ids]
@@ -96,11 +139,21 @@ def main():
                     result = future.result()
                     if result is None:
                         continue
+
                     movie_genres, movie = result
                     if movie and movie.id not in existing_movie_ids:
                         existing_movie_ids.add(movie.id)
-                        genres.extend(movie_genres)
                         movies.append(movie)
+
+                        new_genres = [
+                                movie_genre for movie_genre in movie_genres 
+                                if (movie_genre.genre_id, movie_genre.movie_id) not in existing_movie_genres
+                            ]
+                        
+                        if new_genres:
+                            genres.extend(new_genres)
+                            existing_movie_genres.update((movie_genre.genre_id, movie_genre.movie_id) for movie_genre in new_genres)
+
                     if len(movies) >= BATCH_SIZE:
                         save_batch(records=movies, session=db_session)
                         movies.clear()

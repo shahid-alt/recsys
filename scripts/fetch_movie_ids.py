@@ -1,6 +1,7 @@
 import os
 import time
 import traceback
+from typing import List
 
 from tqdm import tqdm
 
@@ -8,7 +9,7 @@ from dotenv import load_dotenv
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from db.connect import Base, engine, SessionLocal
+from db.connect import SessionLocal
 from models.tmdb import MovieID, Genre
 from utils.db_helpers import save_batch
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -37,7 +38,27 @@ header = {
     "User-Agent": "tmdb-fetcher/1.0"
 }
 
-def fetch_page(year, genre, page):
+def fetch_page(year, genre, page) -> List[int]:
+    """
+    Fetches the Movie IDs from a particular year, all the genres and pages from TMDB
+
+    Args:
+        year (int): Year of the movie
+        genre (string): TMDB Genre ID
+        page (int): Page Number (Page starts from 1, max limit is 500)
+
+    Returns:
+        List[int]: List containing the movie IDs from a particular page, genre and year.
+    
+    Raises:
+        SSLError: If any SSLError occurs.
+        Exception: If any unexpected exception occurs (logged with traceback).
+
+    Notes:
+        - Handles rate limiting (status code 429) using exponential backoff.
+        - Returns empty list if no movies are found (status code 404).
+
+    """
     tries = 0
     max_tries = 3
     for tries in range(max_tries):
@@ -67,11 +88,24 @@ def fetch_page(year, genre, page):
             traceback.print_exc()
 
 def main():
+    """
+    Fetches and saves the movie IDs for all genres and years.
+
+    Workflow:
+        1. Retrieves all then genre IDs from the database.
+        2. Fetches movie IDs for each genre, year and page in parallel using ThreadPoolExecutor.
+        3. Batches and saves the IDs in database in chunks of BATCH_SIZE.
+
+    Notes:
+        - Skips existing movie IDs to avoid duplication.
+        - Logs progress and errors using tqdm.
+    """
     GENRES = {genre.id:genre.name for genre in db_session.query(Genre).all()}
     GENRE_IDS = list(GENRES.keys())
-    START_YEAR = 2020
-    END_YEAR = 2025
+    START_YEAR = 2021
+    END_YEAR = 2022
     TOTAL = (END_YEAR-START_YEAR)*len(GENRE_IDS)*500
+    new_movies_count = 0
     try:
         BATCH_SIZE = 5000
         movies_ids = []
@@ -89,10 +123,11 @@ def main():
                             pbar.update(1)
                             if movies:
                                 new_movies = [movie_id for movie_id in movies if movie_id not in existing_ids]
+                                new_movies_count += len(new_movies)
                                 existing_ids.update(new_movies)
                                 movies_ids.extend(MovieID(id=movie_id) for movie_id in new_movies)
                             if len(movies_ids) >= BATCH_SIZE:
-                                tqdm.write(f'Commiting a batch in Database - Year:{year} - Genre: {GENRES[genre]}')
+                                tqdm.write(f'Commiting a batch in Database')
                                 save_batch(records=movies_ids, session=db_session)
                                 movies_ids.clear() 
                     tqdm.write(f"Completed batch for {year}-{GENRES[genre]}")
@@ -100,7 +135,7 @@ def main():
             if movies_ids: 
                 save_batch(records=movies_ids, session=db_session)
                 movies_ids.clear()
-            tqdm.write(f"Total {len(existing_ids)} Movie IDs pushed to DB.")
+            tqdm.write(f"Total {new_movies_count} New Movie IDs pushed to DB.")
     except Exception as e:
         print(f"Exception Occured: {e}")
         db_session.rollback()

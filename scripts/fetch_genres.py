@@ -1,9 +1,9 @@
 import os
 import traceback
-from typing import List
+from typing import Dict, List, Union
 from dotenv import load_dotenv
 import requests
-from db.connect import Base, engine, SessionLocal
+from db.connect import SessionLocal
 from models.tmdb import Genre
 
 session = SessionLocal()
@@ -19,7 +19,23 @@ header = {
     "Authorization": f"Bearer {bearer_token}"
 }
 
-def fetch_genres(endpoints: List[str]):
+def fetch_genres(endpoints: List[str]) -> List[Dict[str, Union[int, str]]]:
+    """
+    Fetches all the genres from TMDB Database
+    Args:
+        endpoints (list[str]): List of endpoints to fetch genres
+
+    Returns:
+        List of genres dictionary retrieved from the endpoints with:
+            - id (int): Genre ID
+            - name (str): Genre Name
+    
+    Raises:
+        Exception: For unexpected errors (logged) with traceback.
+
+    Notes:
+        Returns empty list if the genres do not exist.
+    """
     if endpoints:
         for url in endpoints:
             try:
@@ -39,6 +55,17 @@ def fetch_genres(endpoints: List[str]):
          print("Endpoint List is empty")
 
 def main():
+    """
+    Fetches and saves all the Movie and TV genres from TMDB.
+
+    Workflow:
+        1. Fetches genres from TMDB endpoints
+        2. Saves new genres to the database.
+
+    Notes:
+        - Skips existing genre to avoid duplication.
+        - Uses bulk insertion for efficiency.
+    """
     try:
         endpoints = [
              "https://api.themoviedb.org/3/genre/movie/list",

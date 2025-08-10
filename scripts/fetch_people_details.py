@@ -3,6 +3,7 @@ import json
 import os
 from threading import Lock
 import time
+from typing import Optional
 
 from dotenv import load_dotenv
 import requests
@@ -10,7 +11,7 @@ from requests.adapters import HTTPAdapter
 from requests.exceptions import SSLError
 from urllib3.util.retry import Retry
 from models.tmdb import Credit, People
-from db.connect import Base, engine, SessionLocal
+from db.connect import SessionLocal
 from utils.db_helpers import save_batch
 
 from tqdm import tqdm
@@ -50,7 +51,33 @@ def get_gender(gender:int) -> str:
     }
     return gender_map.get(gender, 'Not Specified')
 
-def fetch_people_data(people_id: int) -> People:
+def fetch_people_data(people_id: int) -> Optional[People]:
+    """
+    Fetches the details of the Cast using Unique ID of the person.
+
+    Args:
+        people_id (int): Unique ID of the cast in TMDB.
+
+    Returns:
+        Optional[People]: Object of the People having fields:
+            - id (int): TMDB people ID.
+            - is_adult (bool): Whether the cast is adult.
+            - alias (list[str]): Other names of the Cast.
+            - biography (str): Life summary of the person.
+            - birthday (str): Date of Birth of person.
+            - gender (int): Gender
+            - name (str): Full Name of the person.
+            - place_of_birth (str): Birth place of the person.
+            - profile_path (str): Path of person's profile in TMDB.
+
+    Raises: 
+        SSLError: If any SSLError occurs.
+        Exception: If any unexpected exception occurs.
+
+    Notes:
+        - Handles rate limiting (status code 429) with exponential backoff.
+        - Returns None if the person is not found (status code 404).
+    """
     max_tries = 3
     for tries in range(max_tries):
         try:
@@ -88,6 +115,18 @@ def fetch_people_data(people_id: int) -> People:
     return None
 
 def main() -> None:
+    """
+    Fetches and saves the person information in the database.
+
+    Workflow:
+        1. Retrieves all the unique person IDs from database.
+        2. Fetches the details of people in parallel using ThreadPoolExecutor.
+        3. Batches and saves the people data in chunks of BATCH_SIZE in database.
+
+    Notes:
+        - Skips existing person ID to avoid duplication.
+        - Logs progress and errors using tqdm.
+    """
     db_session = SessionLocal()
     try:
         max_workers = 100
