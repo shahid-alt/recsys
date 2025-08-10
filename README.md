@@ -196,14 +196,40 @@ uvicorn main:app --reload
 
 ## 🔌 API Endpoints
 
-| Endpoint                  | Method | Description                                  | Query Parameters / Notes                                      |
-|---------------------------|--------|----------------------------------------------|---------------------------------------------------------------|
-| `/movies`                 | GET    | Get paginated list of movies                  | `page` (int), `limit` (int, default 20), `year`, `genre_id`, `language`, `status` filters supported |
-| `/movies/search`          | GET    | Search movies by title substring              | `query` (string), `page` (int), `limit` (int)                 |
-| `/movies/{movie_id}`      | GET    | Get detailed metadata of a single movie       | `movie_id` (int)                                              |
-| `/movies/{movie_id}/credits` | GET | Get cast and crew credits for a movie          | `movie_id` (int)                                              |
-| `/people/{person_id}`     | GET    | Get detailed information about a person       | `person_id` (int)                                             |
-| `/genres`                 | GET    | Retrieve all movie genres                       | No parameters                                                |
+## 🔌 API Endpoints
+
+### General
+
+| Endpoint    | Method | Description               |
+|-------------|--------|---------------------------|
+| `/`         | GET    | Basic welcome message      |
+| `/health`   | GET    | Health check endpoint      |
+
+### Movie Endpoints
+
+| Endpoint                        | Method | Description                                  | Query Parameters / Notes                                  |
+|---------------------------------|--------|----------------------------------------------|-----------------------------------------------------------|
+| `/movies/`                      | GET    | Get paginated list of all movies             | `page` (int, default=1)                                   |
+| `/movies/search/`               | GET    | Search movies by filters                      | `query`, `genre`, `year`, `status`, `language`, `page`   |
+| `/movies/{movie_id}/`           | GET    | Get detailed metadata for a movie by ID      | `movie_id` (int)                                          |
+| `/movies/{movie_id}/credits/`  | GET    | Get cast and crew credits for a movie        | `movie_id` (int)                                          |
+| `/movies/{movie_id}/genres/`   | GET    | Get genres associated with a movie            | `movie_id` (int)                                          |
+| `/movies/{movie_id}/recommendations/` | GET | (In Progress)  | `movie_id` (int)                                         |
+
+### People Endpoints
+
+| Endpoint                      | Method | Description                                  | Query Parameters / Notes                                  |
+|-------------------------------|--------|----------------------------------------------|-----------------------------------------------------------|
+| `/people/`                   | GET    | Get paginated list of all people             | `page` (int, default=1)                                   |
+| `/people/{person_id}/`       | GET    | Get detailed info about a person by ID       | `person_id` (int)                                         |
+| `/people/{person_id}/movies/` | GET   | Get paginated movies associated with a person | `person_id` (int), `page` (int, default=1)               |
+
+### Genre Endpoints
+
+| Endpoint                    | Method | Description                                  | Query Parameters / Notes                                  |
+|-----------------------------|--------|----------------------------------------------|-----------------------------------------------------------|
+| `/genres/`                 | GET    | List all movie genres                         | —                                                         |
+| `/genres/{genre_name}/`    | GET    | Get paginated movies by genre name           | `genre_name` (string), `page` (int, default=1)           |
 
 ---
 
