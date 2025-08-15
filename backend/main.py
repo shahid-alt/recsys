@@ -1,5 +1,6 @@
 import json
 from math import ceil
+import os
 from typing import Any, Dict, List, Optional
 from fastapi import Depends, FastAPI, HTTPException, Query
 from sqlalchemy import extract, func
@@ -8,11 +9,12 @@ from backend.schema import CreditResponse, GenreResponse, MovieResponse, Paginat
 from db.connect import get_db
 from models.tmdb import Credit, Genre, Movie, MovieGenre, People
 from fastapi.middleware.cors import CORSMiddleware
-app = FastAPI()
 from dotenv import load_dotenv
 
-frontend_url = load_dotenv("VERCEL_URL")
+load_dotenv()
+frontend_url = os.getenv("VERCEL_URL")  
 
+app = FastAPI()
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
