@@ -9,11 +9,14 @@ from db.connect import get_db
 from models.tmdb import Credit, Genre, Movie, MovieGenre, People
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
+from dotenv import load_dotenv
+
+frontend_url = load_dotenv("VERCEL_URL")
 
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[frontend_url],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
