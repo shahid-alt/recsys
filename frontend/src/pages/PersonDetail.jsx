@@ -8,19 +8,19 @@ export default function PersonDetail() {
   const [person, setPerson] = useState(null);
   const [movies, setMovies] = useState([]);
   const [loading, setLoading] = useState(true);
-
+  const API_BASE_URL = import.meta.env.VITE_TMDBMIRROR_BACKEND_URL;
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         
         // Fetch person details
-        const personResponse = await axios.get(`http://localhost:8000/people/${id}/`);
+        const personResponse = await axios.get(`${API_BASE_URL}/people/${id}/`);
         setPerson(personResponse.data);
         
         // Fetch movies they appeared in
         try {
-          const moviesResponse = await axios.get(`http://localhost:8000/people/${id}/movies/`);
+          const moviesResponse = await axios.get(`${API_BASE_URL}/people/${id}/movies/`);
           setMovies(moviesResponse.data.results || []);
         } catch (error) {
           console.error("Error fetching person's movies:", error);

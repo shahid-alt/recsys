@@ -13,8 +13,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 FRONTEND_URL = os.getenv("FRONTEND_URL")
-allowed_origins = [FRONTEND_URL] if FRONTEND_URL else ["*"]
-print(allowed_origins)
+allowed_origins = None
+if not FRONTEND_URL:
+    allowed_origins = ["*"]
+    print('FRONTEND_URL value missing in .env')
+else:
+    allowed_origins = [FRONTEND_URL]
+
 app = FastAPI()
 # Enable CORS
 app.add_middleware(

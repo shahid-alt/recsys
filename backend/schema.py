@@ -42,7 +42,7 @@ class PeopleResponse(BaseModel):
     gender: str
     name: str
     place_of_birth: Optional[str]
-    profile_path: str
+    profile_path: Optional[str]
 
     model_config = {
         "from_attributes": True

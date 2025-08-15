@@ -9,6 +9,7 @@ export default function MovieDetail() {
   const [credits, setCredits] = useState([]);
   const [castDetails, setCastDetails] = useState({});
   const [loading, setLoading] = useState(true);
+  const API_BASE_URL = import.meta.env.VITE_TMDBMIRROR_BACKEND_URL;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,7 +30,7 @@ export default function MovieDetail() {
         await Promise.all(
           uniquePersonIds.map(async personId => {
             try {
-              const response = await axios.get(`http://localhost:8000/people/${personId}/`);
+              const response = await axios.get(`${API_BASE_URL}/people/${personId}/`);
               details[personId] = response.data;
             } catch (error) {
               console.error(`Error fetching person ${personId}:`, error);
