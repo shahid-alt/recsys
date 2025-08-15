@@ -7,7 +7,16 @@ const api = axios.create({
   baseURL: BASE_URL,
 });
 
-export const fetchMovies = (page = 1) => api.get(`/movies/?page=${page}`);
+export const fetchMovies = (page = 1) => {
+  try {
+    const res = api.get(`/movies/?page=${page}`);
+    return res;
+  } catch (err) {
+    console.error('API error:', err);
+    throw err;
+  }
+};
+
 export const searchMovies = (query, { page = 1, year, language, genre, status } = {}) => {
   const params = { query, page };
   if (year) params.year = year;
