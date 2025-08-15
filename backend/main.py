@@ -12,13 +12,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 load_dotenv()
-frontend_url = os.getenv("VERCEL_URL")  
-
+FRONTEND_URL = os.getenv("FRONTEND_URL")
+allowed_origins = [FRONTEND_URL] if FRONTEND_URL else ["*"]
+print(allowed_origins)
 app = FastAPI()
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
