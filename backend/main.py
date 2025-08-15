@@ -10,16 +10,10 @@ from models.tmdb import Credit, Genre, Movie, MovieGenre, People
 from fastapi.middleware.cors import CORSMiddleware
 app = FastAPI()
 
-origins = [
-    "http://localhost:5173",  # Vite dev server
-    "http://localhost:3000",  # If using CRA
-    "http://127.0.0.1:5173",
-]
-
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,  # or use ["*"] for all origins (not recommended for prod)
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

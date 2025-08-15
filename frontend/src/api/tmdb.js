@@ -1,7 +1,10 @@
 import axios from 'axios';
 
+const BASE_URL = import.meta.env.VITE_TMDBMIRROR_BACKEND_URL;
+
+console.log('BASE_URL', BASE_URL);
 const api = axios.create({
-  baseURL: 'http://localhost:8000',
+  baseURL: BASE_URL,
 });
 
 export const fetchMovies = (page = 1) => api.get(`/movies/?page=${page}`);
